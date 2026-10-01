@@ -46,6 +46,8 @@ CASOS_MUROS = ["U1", "U5X", "U5Y", "U7X", "U7Y"]
 # Una tabla = (hoja, patron regex sobre el nombre de la tabla, grupo, casos)
 #   grupo = None  -> sin filtro de grupo
 #   casos = None  -> todos los casos y combos (para tablas de diseno)
+#   5to elemento opcional "nudos_de_areas": el grupo solo contiene areas (no nudos),
+#   asi que se lee la tabla completa y se filtra por los nudos de esas areas.
 # Un patron puede coincidir con varias tablas: se exporta cada una en su hoja.
 ARCHIVOS = {
     # A. Superestructura con base flexible
@@ -57,8 +59,8 @@ ARCHIVOS = {
     ]),
     # B. Suelo
     "B": ("CIMENTACION_reacciones.xlsx", [
-        ("Reac_ZapAisl", r"^Joint Reactions$", "ZAP_AISLADAS", CASOS_SUELO),
-        ("Reac_ZapCorr", r"^Joint Reactions$", "ZAP_CORRIDAS", CASOS_SUELO),
+        ("Reac_ZapAisl", r"^Joint Reactions$", "ZAP_AISLADAS", CASOS_SUELO, "nudos_de_areas"),
+        ("Reac_ZapCorr", r"^Joint Reactions$", "ZAP_CORRIDAS", CASOS_SUELO, "nudos_de_areas"),
         ("Reac_Base", r"^Base Reactions$", None, CASOS_SUELO),
     ]),
     # C + D. Refuerzo de cimentacion y muros
@@ -152,6 +154,24 @@ def leer_tabla(m, clave, grupo, casos):
     return df
 
 
+
+def _etiqueta(x):
+    """Normaliza una etiqueta (1, 1.0, '1') a texto comparable."""
+    t = str(x).strip()
+    return t[:-2] if t.endswith(".0") else t
+
+
+def nudos_de_areas_del_grupo(m, grupo, todos):
+    """Etiquetas de los nudos de las areas asignadas a `grupo`."""
+    asig = leer_tabla(m, "Groups 2 - Assignments", None, todos)
+    areas = {_etiqueta(a) for a in asig.loc[(asig["GroupName"] == grupo)
+                                            & (asig["ObjectType"] == "Area"), "ObjectLabel"]}
+    conn = leer_tabla(m, "Connectivity - Area", None, todos)
+    conn = conn[conn["Area"].map(_etiqueta).isin(areas)]
+    cols = [c for c in conn.columns if re.fullmatch(r"Joint\d+", c)]
+    return {_etiqueta(j) for c in cols for j in conn[c].dropna() if str(j).strip() != ""}
+
+
 def seleccion_casos(m, pedidos, existentes):
     """Casos/combos pedidos que existen; avisa de los que no."""
     if pedidos is None:
@@ -210,7 +230,7 @@ def main():
             continue
         print(f"\n[{letra}] {archivo}")
         hojas, usados = {}, set()
-        for hoja, patron, grupo, casos in trabajos:
+        for hoja, patron, grupo, casos, *extra in trabajos:
             if grupo and grupo not in grupos:
                 print(f"  - {hoja}: el grupo {grupo} no existe, se omite")
                 continue
@@ -224,7 +244,12 @@ def main():
                 sufijo = re.search(r"Column|Beam|Joint", clave)
                 nombre = hoja if len(tablas) == 1 else f"{hoja}_{sufijo.group(0) if sufijo else clave[:12]}"
                 try:
-                    df = leer_tabla(m, clave, grupo, sel)
+                    if extra and extra[0] == "nudos_de_areas":
+                        nudos = nudos_de_areas_del_grupo(m, grupo, existentes)
+                        df = leer_tabla(m, clave, None, sel)
+                        df = df[df["Joint"].map(_etiqueta).isin(nudos)]
+                    else:
+                        df = leer_tabla(m, clave, grupo, sel)
                 except Exception as e:  # noqa: BLE001
                     print(f"  - {hoja}: error leyendo '{clave}': {e}")
                     continue
