@@ -129,11 +129,18 @@ def leer_tabla(m, clave, grupo, casos):
     db.SetLoadCasesSelectedForDisplay(casos)
     db.SetLoadCombinationsSelectedForDisplay(casos)
     res = db.GetTableForDisplayArray(clave, [], grupo or "", 0, [], 0, [])
-    # comtypes devuelve: (TableVersion, Campos[], NumRegistros, Datos[], ret)
+    # comtypes devuelve los parametros de salida y al final el codigo de retorno:
+    # (FieldKeyList[], TableVersion, FieldsKeysIncluded[], NumberRecords, TableData[], ret)
     ret = res[-1]
     if ret != 0:
         raise RuntimeError(f"GetTableForDisplayArray devolvio {ret}")
-    campos, n, datos = list(res[1]), int(res[2]), list(res[3])
+    cuerpo = res[:-1]
+    secuencias = [list(x) if x is not None else [] for x in cuerpo
+                  if x is None or isinstance(x, (list, tuple))]
+    enteros = [x for x in cuerpo if isinstance(x, int)]
+    if len(secuencias) < 2 or not enteros:
+        raise RuntimeError(f"respuesta inesperada de la API: {[type(x).__name__ for x in res]}")
+    campos, datos, n = secuencias[-2], secuencias[-1], int(enteros[-1])
     if n == 0 or not campos:
         return pd.DataFrame(columns=campos)
     filas = [datos[i * len(campos):(i + 1) * len(campos)] for i in range(n)]
