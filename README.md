@@ -29,6 +29,9 @@ v10/
 docs/               # memoria de cálculo, notas, criterios
 scripts/
   extraer_tablas_sap.py   # extrae las tablas de SAP2000 a Excel (corre en tu PC)
+  calculo_r1.py           # diseño de muros, zapatas, vigas y pedestales (Excel -> calculo_r1.xlsx)
+  figuras_r1.py           # figuras de la memoria
+  generar_memoria_r1.py   # arma la memoria Rev. 1 a partir de la Rev. 0 y los resultados
 ```
 
 Cada versión nueva va en su carpeta: `v11/`, `v12/`, ... con la misma estructura.
@@ -46,7 +49,7 @@ Cada versión nueva va en su carpeta: `v11/`, `v12/`, ... con la misma estructur
 
 | Versión | Cambios | Resultado |
 |---|---|---|
-| v10 | Versión inicial en el repositorio | (pendiente) |
+| v10 | Modelo con cimentación sobre resortes (kv = 4 800 T/m³) | Memoria Rev. 1: `docs/MT-CASA_MR-ESTRUCTURA-R1-01102026.docx` |
 
 ## Notas
 

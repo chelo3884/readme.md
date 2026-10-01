@@ -107,6 +107,8 @@ ARCHIVOS = {
         Job("Conc_VigasCim", r"^Concrete Design \d - Beam Summary.*ACI 318-19",
             "VIGAS_CIMENTACION", None, "10"),
         Job("Muros", r"^Element Forces - Area Shells$", "MUROS", CASOS_MUROS, "9.1"),
+        Job("Conc_Vigas_Todas", r"^Concrete Design \d - Beam Summary.*ACI 318-19", None, None,
+            "9.2 (vigas de coronacion y demas vigas de H.A.)"),
     ]),
     "M": ("modelo_definiciones.xlsx", [
         Job("Sec_Frames", r"^Frame Section Properties 01 - General$", None, None, "4.3"),
