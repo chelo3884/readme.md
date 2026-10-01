@@ -68,9 +68,9 @@ ARCHIVOS = {
         ("Frame_Pedest", r"^Element Forces - Frames$", "PEDESTALES", CASOS_REFUERZO),
         ("Frame_Pilastras", r"^Element Forces - Frames$", "PILASTRAS", CASOS_REFUERZO),
         ("Frame_VigasCim", r"^Element Forces - Frames$", "VIGAS_CIMENTACION", CASOS_REFUERZO),
-        ("Conc_Pedest", r"^Concrete Design.*Summary.*ACI 318-19", "PEDESTALES", None),
-        ("Conc_Pilastras", r"^Concrete Design.*Summary.*ACI 318-19", "PILASTRAS", None),
-        ("Conc_VigasCim", r"^Concrete Design.*Summary.*ACI 318-19", "VIGAS_CIMENTACION", None),
+        ("Conc_Pedest", r"^Concrete Design \d - (Column|Beam) Summary.*ACI 318-19", "PEDESTALES", None),
+        ("Conc_Pilastras", r"^Concrete Design \d - (Column|Beam) Summary.*ACI 318-19", "PILASTRAS", None),
+        ("Conc_VigasCim", r"^Concrete Design \d - (Column|Beam) Summary.*ACI 318-19", "VIGAS_CIMENTACION", None),
         ("Muros", r"^Element Forces - Area Shells$", "MUROS", CASOS_MUROS),
     ]),
 }
@@ -214,7 +214,8 @@ def main():
                 continue
             sel = seleccion_casos(m, casos, existentes)
             for clave in tablas:
-                nombre = hoja if len(tablas) == 1 else f"{hoja}_{clave[:12]}"
+                sufijo = re.search(r"Column|Beam|Joint", clave)
+                nombre = hoja if len(tablas) == 1 else f"{hoja}_{sufijo.group(0) if sufijo else clave[:12]}"
                 try:
                     df = leer_tabla(m, clave, grupo, sel)
                 except Exception as e:  # noqa: BLE001
