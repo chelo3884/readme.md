@@ -538,20 +538,25 @@ def d_presiones(dt):
     r["A_trib"] = r["Joint"].map(trib)
     r["p_nodal"] = r["F3"] / r["A_trib"]
 
+    # Las combinaciones con sismo traen dos filas por nudo (StepType Max y Min): no se
+    # deben sumar. Max gobierna la presion; Min gobierna el levantamiento.
+    r["Paso"] = r["StepType"].fillna("") if "StepType" in r.columns else ""
     filas = []
-    for (zid, caso), g in r.groupby(["Zapata", "OutputCase"]):
+    for (zid, caso, paso), g in r.groupby(["Zapata", "OutputCase", "Paso"]):
         js = g["Joint"].unique()
         cx = coord.loc[[j for j in js if j in coord.index], "GlobalX"].astype(float).mean()
         cy = coord.loc[[j for j in js if j in coord.index], "GlobalY"].astype(float).mean()
         a_tot = sum(trib[j] for j in js)
         lim = PARAMETROS["qadm"] if caso in CASOS_SUELO_EST else PARAMETROS["qadm_sismo"]
-        filas.append({"Zapata": zid, "Caso": caso, "Nudos": len(js), "Area (m2)": a_tot,
-                      "X (m)": cx, "Y (m)": cy, "F3 total (T)": g["F3"].sum(),
-                      "p prom (T/m2)": g["F3"].sum() / a_tot,
+        p_prom = g["F3"].sum() / a_tot
+        evalua = paso in ("", "Max")
+        filas.append({"Zapata": zid, "Caso": caso, "Paso": paso, "Nudos": len(js),
+                      "Area (m2)": a_tot, "X (m)": cx, "Y (m)": cy,
+                      "F3 total (T)": g["F3"].sum(), "p prom (T/m2)": p_prom,
                       "p max nodal (T/m2)": g["p_nodal"].max(),
                       "p min nodal (T/m2)": g["p_nodal"].min(),
                       "Limite (T/m2)": lim,
-                      "Resultado": "Cumple" if g["F3"].sum() / a_tot <= lim else "NO cumple",
+                      "Resultado": ("Cumple" if p_prom <= lim else "NO cumple") if evalua else "-",
                       "Nudos con levantamiento": int((g["F3"] < 0).sum())})
     return pd.DataFrame(filas)
 
@@ -580,11 +585,14 @@ def derivados(dt):
         return res
     if "Presion_zapatas" in res:  # resumen por caso
         p = res["Presion_zapatas"]
-        res["Presion_resumen"] = p.groupby("Caso").agg(
+        mx = p[p["Paso"].isin(["", "Max"])].groupby("Caso").agg(
             **{"p prom max (T/m2)": ("p prom (T/m2)", "max"),
                "p max nodal (T/m2)": ("p max nodal (T/m2)", "max"),
-               "Zapatas que no cumplen": ("Resultado", lambda s: int((s == "NO cumple").sum())),
-               "Nudos con levantamiento": ("Nudos con levantamiento", "sum")}).reset_index()
+               "Zapatas que no cumplen": ("Resultado", lambda s: int((s == "NO cumple").sum()))})
+        mn = p[p["Paso"].isin(["", "Min"])].groupby("Caso").agg(
+            **{"p min nodal (T/m2)": ("p min nodal (T/m2)", "min"),
+               "Nudos con levantamiento": ("Nudos con levantamiento", "sum")})
+        res["Presion_resumen"] = mx.join(mn).reset_index()
     par = pd.DataFrame({"Parametro": list(PARAMETROS), "Valor": list(PARAMETROS.values())})
     res["Parametros"] = par
     with pd.ExcelWriter(dt / "derivados_memoria.xlsx", engine="openpyxl") as xw:
@@ -687,6 +695,7 @@ def figuras(dt, carpeta, res):
     # Presiones en el suelo
     if "Presion_zapatas" in res:
         p = res["Presion_zapatas"]
+        p = p[p["Paso"].isin(["", "Max"])]
         mx = p.groupby("Caso")["p prom (T/m2)"].max()
         fig, ax = plt.subplots(figsize=(7, 4.5))
         ax.bar(mx.index, mx.values, color=AZUL)
