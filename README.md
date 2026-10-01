@@ -27,13 +27,16 @@ v10/
   modelo.s2k        # modelo exportado desde SAP2000 (File > Export > .s2k)
   tablas/           # tablas exportadas (CSV/Excel): derivas, reacciones, diseño
 docs/               # memoria de cálculo, notas, criterios
+scripts/
+  extraer_tablas_sap.py   # extrae las tablas de SAP2000 a Excel (corre en tu PC)
 ```
 
 Cada versión nueva va en su carpeta: `v11/`, `v12/`, ... con la misma estructura.
 
 ## Flujo de trabajo
 
-1. En SAP2000: exportar el modelo como `.s2k` y las tablas (Display > Show Tables).
+1. En SAP2000: exportar el modelo como `.s2k`, correr análisis/diseño y ejecutar
+   `python scripts/extraer_tablas_sap.py --salida vNN/tablas` (requiere `pip install comtypes pandas openpyxl`).
 2. Subir los archivos a la carpeta de la versión (`vNN/`).
 3. En la sesión de Claude Code: se analizan las tablas, se proponen cambios y se genera `v(NN+1)/modelo.s2k`.
 4. Importar el nuevo `.s2k` en SAP2000, verificar que abra sin errores, correr análisis y exportar tablas.
