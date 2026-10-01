@@ -1,0 +1,47 @@
+﻿Archivo,Hoja,Tabla SAP2000,Filas,Grupo,Casos,Memoria,Estado
+tablas_casa_mr.xlsx,Modal_Masas,Modal Participating Mass Ratios,40,,MODAL,7.1,ok
+tablas_casa_mr.xlsx,Modal_Periodos,Modal Periods And Frequencies,40,,MODAL,7.1,ok
+tablas_casa_mr.xlsx,Cortes_Seccion,Section Cut Forces - Analysis,18,,"SX, SY, SPECX, SPECY, ~TorsionSPECX, ~TorsionSPECY",7.2,ok
+tablas_casa_mr.xlsx,Desplazamientos,Joint Displacements,114,DESPLAZAMIENTOS,"SX, SY, SPECX, SPECY, ~TorsionSPECX, ~TorsionSPECY",7.3,ok
+tablas_casa_mr.xlsx,Desplazamientos_Todos,Joint Displacements,7984,,"SX, SY, SPECX, SPECY",7.3 (derivas),ok
+tablas_casa_mr.xlsx,Acero_DC,Steel Design 1 - Summary Data - AISC 360-16,374,,todos,"8.2, Anexo A",ok
+tablas_casa_mr.xlsx,Reac_Base_Todas,Base Reactions,79,,todos,"5.5.5, 10.3",ok
+tablas_casa_mr.xlsx,Masas_Grupos,Groups 3 - Masses and Weights,9,,todos,5.5.5,ok
+CIMENTACION_reacciones.xlsx,Reac_ZapAisl,Joint Reactions,6500,ZAP_AISLADAS,"CS1, CS2, CS3X, CS3Y, CS4X, CS4Y",10.1,ok
+CIMENTACION_reacciones.xlsx,Reac_ZapCorr,Joint Reactions,4220,ZAP_CORRIDAS,"CS1, CS2, CS3X, CS3Y, CS4X, CS4Y",10.2,ok
+CIMENTACION_reacciones.xlsx,Reac_Base,Base Reactions,10,,"CS1, CS2, CS3X, CS3Y, CS4X, CS4Y",10.3,ok
+CIMENTACION_reacciones.xlsx,Presion_SAP_Aisl,Element Soil Pressure - Area Shells,0,ZAP_AISLADAS,"CS1, CS2, CS3X, CS3Y, CS4X, CS4Y",10.1 (si hay resortes de area),error: la API devolvio 1
+CIMENTACION_reacciones.xlsx,Presion_SAP_Corr,Element Soil Pressure - Area Shells,0,ZAP_CORRIDAS,"CS1, CS2, CS3X, CS3Y, CS4X, CS4Y",10.2 (si hay resortes de area),error: la API devolvio 1
+CIMENTACION_fuerzas.xlsx,Shell_ZapAisl,Element Forces - Area Shells,21632,ZAP_AISLADAS,"U1, U2a, U2b, U3a, U3b, U5X, U5Y, U7X, U7Y",10.1,ok
+CIMENTACION_fuerzas.xlsx,Shell_ZapCorr,Element Forces - Area Shells,17264,ZAP_CORRIDAS,"U1, U2a, U2b, U3a, U3b, U5X, U5Y, U7X, U7Y",10.2,ok
+CIMENTACION_fuerzas.xlsx,Frame_Pedest,Element Forces - Frames,1092,PEDESTALES,"U1, U2a, U2b, U3a, U3b, U5X, U5Y, U7X, U7Y",9.2,ok
+CIMENTACION_fuerzas.xlsx,Frame_Pilastras,Element Forces - Frames,273,PILASTRAS,"U1, U2a, U2b, U3a, U3b, U5X, U5Y, U7X, U7Y",9.2,ok
+CIMENTACION_fuerzas.xlsx,Frame_VigasCim,Element Forces - Frames,7046,VIGAS_CIMENTACION,"U1, U2a, U2b, U3a, U3b, U5X, U5Y, U7X, U7Y",10,ok
+CIMENTACION_fuerzas.xlsx,Conc_Pedest,Concrete Design 1 - Column Summary Data - ACI 318-19,84,PEDESTALES,todos,9.2,ok
+CIMENTACION_fuerzas.xlsx,Conc_Pedest,Concrete Design 2 - Beam Summary Data - ACI 318-19,0,PEDESTALES,todos,9.2,error: la API devolvio 1
+CIMENTACION_fuerzas.xlsx,Conc_Pilastras,Concrete Design 1 - Column Summary Data - ACI 318-19,21,PILASTRAS,todos,9.2,ok
+CIMENTACION_fuerzas.xlsx,Conc_Pilastras,Concrete Design 2 - Beam Summary Data - ACI 318-19,0,PILASTRAS,todos,9.2,error: la API devolvio 1
+CIMENTACION_fuerzas.xlsx,Conc_VigasCim,Concrete Design 1 - Column Summary Data - ACI 318-19,0,VIGAS_CIMENTACION,todos,10,error: la API devolvio 1
+CIMENTACION_fuerzas.xlsx,Conc_VigasCim,Concrete Design 2 - Beam Summary Data - ACI 318-19,542,VIGAS_CIMENTACION,todos,10,ok
+CIMENTACION_fuerzas.xlsx,Muros,Element Forces - Area Shells,17640,MUROS,"U1, U5X, U5Y, U7X, U7Y",9.1,ok
+modelo_definiciones.xlsx,Sec_Frames,Frame Section Properties 01 - General,20,,todos,4.3,ok
+modelo_definiciones.xlsx,Asig_Frames,Frame Section Assignments,631,,todos,4.3,ok
+modelo_definiciones.xlsx,Obj_Frames,Objects And Elements - Frames,836,,todos,4.3,ok
+modelo_definiciones.xlsx,Sec_Areas,Area Section Properties,4,,todos,4.2,ok
+modelo_definiciones.xlsx,Mat_General,Material Properties 01 - General,6,,todos,2,ok
+modelo_definiciones.xlsx,Mat_Mecanicas,Material Properties 02 - Basic Mechanical Properties,6,,todos,2,ok
+modelo_definiciones.xlsx,Mat_Acero,Material Properties 03a - Steel Data,3,,todos,2,ok
+modelo_definiciones.xlsx,Mat_Hormigon,Material Properties 03b - Concrete Data,1,,todos,2,ok
+modelo_definiciones.xlsx,Mat_Refuerzo,Material Properties 03e - Rebar Data,1,,todos,2,ok
+modelo_definiciones.xlsx,Patrones_Carga,Load Pattern Definitions,10,,todos,5,ok
+modelo_definiciones.xlsx,Casos_Carga,Load Case Definitions,13,,todos,6,ok
+modelo_definiciones.xlsx,Combinaciones,Combination Definitions,103,,todos,6,ok
+modelo_definiciones.xlsx,Masa_Sismica,Mass Source,2,,todos,"4.2, 5.5",ok
+modelo_definiciones.xlsx,Sismo_Estatico,Auto Seismic - User Coefficient,2,,todos,5.5.5,ok
+modelo_definiciones.xlsx,Espectro,Function - Response Spectrum - User,43,,todos,5.5.2,ok
+modelo_definiciones.xlsx,Caso_Espectral,Case - Response Spectrum 1 - General,2,,todos,5.5.2,ok
+modelo_definiciones.xlsx,Caso_Modal,Case - Modal 1 - General,1,,todos,7.1,ok
+modelo_definiciones.xlsx,Grupos_Def,Groups 1 - Definitions,9,,todos,-,ok
+modelo_definiciones.xlsx,Grupos_Asignaciones,Groups 2 - Assignments,1487,,todos,-,ok
+modelo_definiciones.xlsx,Conectividad_Areas,Connectivity - Area,1403,,todos,10 (areas tributarias),ok
+modelo_definiciones.xlsx,Coord_Nudos,Joint Coordinates,1996,,todos,"7.3, 10",ok
