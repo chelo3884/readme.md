@@ -1,0 +1,19 @@
+# SAP2000: binarios y temporales (no sirven para diff y pesan mucho)
+*.sdb
+*.SDB
+*.$2k
+*.K*
+*.OUT
+*.LOG
+*.MSH
+*.Y*
+*.EKO
+*.JNT
+*.FRM
+*.SHL
+*.TXT.bak
+*.bak
+*.tmp
+# Sistema
+.DS_Store
+Thumbs.db
