@@ -36,7 +36,7 @@ Cada versión nueva va en su carpeta: `v11/`, `v12/`, ... con la misma estructur
 ## Flujo de trabajo
 
 1. En SAP2000: exportar el modelo como `.s2k`, correr análisis/diseño y ejecutar
-   `python scripts/extraer_tablas_sap.py --salida vNN/tablas` (requiere `pip install comtypes pandas openpyxl`).
+   `python scripts/extraer_tablas_sap.py --salida vNN/tablas` (requiere `pip install comtypes pandas openpyxl matplotlib pillow`).
 2. Subir los archivos a la carpeta de la versión (`vNN/`).
 3. En la sesión de Claude Code: se analizan las tablas, se proponen cambios y se genera `v(NN+1)/modelo.s2k`.
 4. Importar el nuevo `.s2k` en SAP2000, verificar que abra sin errores, correr análisis y exportar tablas.
