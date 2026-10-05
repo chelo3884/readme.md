@@ -10,7 +10,8 @@ REQUISITOS (PC con Windows donde corre SAP2000):
 USO TIPICO (SAP2000 abierto, modelo con analisis y disenos corridos):
     python extraer_tablas_sap.py --listar                 # revisar nombres del modelo
     python extraer_tablas_sap.py --salida v10/tablas      # extrae + derivados + graficos
-    python extraer_tablas_sap.py --solo A                 # solo un grupo de tablas
+    python extraer_tablas_sap.py --solo A                 # solo un grupo de tablas (A, B, C, F, M)
+    python extraer_tablas_sap.py --solo F --salida v11/tablas   # solo las tablas faltantes
     python extraer_tablas_sap.py --solo-derivados         # recalcula derivados y graficos
                                                           # desde los Excel (sin SAP2000)
     python extraer_tablas_sap.py --capturas               # capturas guiadas de SAP2000
@@ -19,6 +20,8 @@ ARCHIVOS GENERADOS en --salida (cada uno con una hoja INDICE):
     tablas_casa_mr.xlsx           A  superestructura (modal, cortes, desplazamientos, D/C)
     CIMENTACION_reacciones.xlsx   B  suelo (reacciones en resortes, reaccion en la base)
     CIMENTACION_fuerzas.xlsx      C  refuerzo de cimentacion y muros
+    CIMENTACION_faltantes.xlsx    F  reacciones bajo vigas, pilastras del subsuelo, vigas de coronacion,
+                                     pilastrones y combos omega (pedestales y colectoras)
     modelo_definiciones.xlsx      M  definiciones del modelo (secciones, cargas, combos...)
     derivados_memoria.xlsx           tablas listas para la memoria (se calculan de las anteriores)
 y en --figuras (por defecto <salida>/../figuras): PNG de los graficos.
@@ -64,6 +67,11 @@ CASOS_SUELO_EST = ["CS1", "CS2"]
 CASOS_REFUERZO = ["U1", "U2a", "U2b", "U3a", "U3b", "U5X", "U5Y", "U7X", "U7Y"]
 CASOS_MUROS = ["U1", "U5X", "U5Y", "U7X", "U7Y"]
 CASOS_PESO = ["DEAD", "MUERTA", "VIVA", "VIVA_CUB", "GRANIZO"]
+CASOS_OMEGA = ["@OMEGA"]   # marcador: combos cuyo nombre contiene "omega" (U5Xomega, U7Yomega...)
+FRAMES_PILASTRAS_SUB = [148, 149, 179, 402, 403, 404, 425]   # pilastras del tramo del subsuelo
+FRAMES_VCOR = list(range(405, 425))                            # vigas de coronacion
+FRAMES_PILASTRONES = [623, 632]                                # pilastrones B-4 y B-5
+FRAMES_COLECTORAS = list(range(633, 656))                      # colectoras
 
 
 @dataclass
@@ -73,7 +81,11 @@ class Job:
     grupo: str = None           # filtro de grupo (None = sin filtro)
     casos: list = None          # casos/combos (None = todos)
     memoria: str = ""           # seccion de la memoria donde se usa
-    nudos_de_areas: bool = False  # el grupo solo tiene areas: filtrar nudos por sus areas
+    nudos_de_areas: bool = False  # el grupo no tiene nudos propios (solo areas o frames): se lee la
+                                  # tabla completa y se filtra por los nudos de sus objetos
+    excluir_nudos_de: list = None  # con nudos_de_areas: grupos cuyos nudos se descartan (evita doble conteo)
+    frames: list = None           # filtro por etiqueta de frame (columna Frame); si el grupo no existe en
+                                  # el modelo, se lee sin grupo y se filtra solo por estos frames
 
 
 ARCHIVOS = {
@@ -107,8 +119,26 @@ ARCHIVOS = {
         Job("Conc_VigasCim", r"^Concrete Design \d - Beam Summary.*ACI 318-19",
             "VIGAS_CIMENTACION", None, "10"),
         Job("Muros", r"^Element Forces - Area Shells$", "MUROS", CASOS_MUROS, "9.1"),
-        Job("Conc_Vigas_Todas", r"^Concrete Design \d - Beam Summary.*ACI 318-19", None, None,
-            "9.2 (vigas de coronacion y demas vigas de H.A.)"),
+    ]),
+    # Tablas que faltaban en la primera tanda: reacciones bajo vigas de cimentacion, pilastras del
+    # subsuelo, vigas de coronacion, pilastrones, anclajes y colectoras (combos omega).
+    # Las que dependen de un grupo (VCOR, COLECTORAS) funcionan tambien sin crearlo en SAP2000:
+    # si el grupo no existe se lee la tabla completa y se filtra por la lista de frames.
+    "F": ("CIMENTACION_faltantes.xlsx", [
+        # Nudos con resorte fuera de las zapatas: vigas de cimentacion y pilastrones B-4/B-5 (en el modelo
+        # REV10 son 167: 165 bajo VIGAS_CIMENTACION y 2 bajo los frames 623 y 632). Se descartan los nudos de
+        # ZAP_* para que la suma con Reac_ZapAisl/Corr cierre con la reaccion total sin doble conteo.
+        Job("Reac_VigasCim", r"^Joint Reactions$", "@RESORTES", CASOS_SUELO, "10 (control de reacciones)",
+            True, ["ZAP_AISLADAS", "ZAP_CORRIDAS"]),
+        Job("Conc_Pilastras_Sub", r"^Concrete Design \d - Column Summary.*ACI 318-19", None, None, "9.2",
+            frames=FRAMES_PILASTRAS_SUB),
+        Job("Conc_VCOR", r"^Concrete Design \d - Beam Summary.*ACI 318-19", "VCOR", None, "9.2",
+            frames=FRAMES_VCOR),
+        Job("Frame_Pilastrones", r"^Element Forces - Frames$", None, CASOS_REFUERZO, "10.7",
+            frames=FRAMES_PILASTRONES),
+        Job("Frame_Pedest_omega", r"^Element Forces - Frames$", "PEDESTALES", CASOS_OMEGA, "anclajes"),
+        Job("Frame_Colect_omega", r"^Element Forces - Frames$", "COLECTORAS", CASOS_OMEGA, "colectoras",
+            frames=FRAMES_COLECTORAS),
     ]),
     "M": ("modelo_definiciones.xlsx", [
         Job("Sec_Frames", r"^Frame Section Properties 01 - General$", None, None, "4.3"),
@@ -260,23 +290,45 @@ def leer_tabla(m, clave, grupo, casos):
 
 
 def nudos_de_areas_del_grupo(m, grupo, todos):
-    """Etiquetas de los nudos de las areas asignadas a `grupo`."""
+    """Etiquetas de los nudos de los objetos (areas y frames) asignados a `grupo`.
+    Los grupos de zapatas solo contienen areas y los de vigas solo frames, por eso las tablas
+    de nudos (Joint Reactions...) salen vacias si se filtran por grupo: se filtran por estos nudos."""
+    if grupo == "@RESORTES":   # seudo-grupo: todos los nudos con resorte de suelo
+        sp = leer_tabla(m, "Joint Spring Assignments 1 - Uncoupled", None, todos)
+        return {_etiqueta(j) for j in sp["Joint"].dropna()}
     asig = leer_tabla(m, "Groups 2 - Assignments", None, todos)
-    areas = {_etiqueta(a) for a in asig.loc[(asig["GroupName"] == grupo)
-                                            & (asig["ObjectType"] == "Area"), "ObjectLabel"]}
-    conn = leer_tabla(m, "Connectivity - Area", None, todos)
-    conn = conn[conn["Area"].map(_etiqueta).isin(areas)]
-    cols = [c for c in conn.columns if re.fullmatch(r"Joint\d+", c)]
-    return {_etiqueta(j) for c in cols for j in conn[c].dropna() if str(j).strip() != ""}
+    g = asig[asig["GroupName"] == grupo]
+    nudos = set()
+    areas = {_etiqueta(a) for a in g.loc[g["ObjectType"] == "Area", "ObjectLabel"]}
+    if areas:
+        conn = leer_tabla(m, "Connectivity - Area", None, todos)
+        conn = conn[conn["Area"].map(_etiqueta).isin(areas)]
+        cols = [c for c in conn.columns if re.fullmatch(r"Joint\d+", c)]
+        nudos |= {_etiqueta(j) for c in cols for j in conn[c].dropna() if str(j).strip() != ""}
+    frames = {_etiqueta(f) for f in g.loc[g["ObjectType"] == "Frame", "ObjectLabel"]}
+    if frames:   # elementos de analisis (incluye los nudos intermedios de la malla automatica)
+        el = leer_tabla(m, "Objects And Elements - Frames", None, todos)
+        el = el[el["FrameObject"].map(_etiqueta).isin(frames)]
+        nudos |= {_etiqueta(j) for c in ("ElemJtI", "ElemJtJ") for j in el[c].dropna()}
+    return nudos
 
 
 def seleccion_casos(pedidos, existentes):
     if pedidos is None:
         return existentes
-    faltan = [c for c in pedidos if c not in existentes]
+    expandidos = []
+    for c in pedidos:
+        if c == "@OMEGA":
+            omega = [e for e in existentes if re.search(r"omega|\u03a9", e, re.I)]
+            if not omega:
+                print("    AVISO: el modelo no tiene combinaciones omega")
+            expandidos += omega
+        else:
+            expandidos.append(c)
+    faltan = [c for c in expandidos if c not in existentes]
     if faltan:
         print(f"    AVISO: no existen en el modelo: {', '.join(faltan)}")
-    return [c for c in pedidos if c in existentes] or existentes
+    return [c for c in expandidos if c in existentes] or existentes
 
 
 def listar(m):
@@ -305,15 +357,21 @@ def extraer(m, salida, letras, csv):
         for job in trabajos:
             def anotar(estado, tabla="", filas=0, hoja=job.hoja):
                 fila = {"Hoja": hoja, "Tabla SAP2000": tabla, "Filas": filas,
-                        "Grupo": job.grupo or "", "Casos": "todos" if job.casos is None
+                        "Grupo": job.grupo or "", "Frames": (f"{len(job.frames)} frames" if job.frames else ""), "Casos": "todos" if job.casos is None
                         else ", ".join(job.casos), "Memoria": job.memoria, "Estado": estado}
                 indice.append(fila)
                 resumen.append({"Archivo": archivo, **fila})
 
-            if job.grupo and job.grupo not in grupos:
-                print(f"  - {job.hoja}: el grupo {job.grupo} no existe, se omite")
-                anotar("grupo inexistente")
-                continue
+            grupo = job.grupo
+            if grupo and not grupo.startswith("@") and grupo not in grupos:
+                if job.frames:
+                    print(f"  - {job.hoja}: el grupo {grupo} no existe; se filtra por frames "
+                          f"{min(job.frames)}-{max(job.frames)} ({len(job.frames)})")
+                    grupo = None
+                else:
+                    print(f"  - {job.hoja}: el grupo {grupo} no existe, se omite")
+                    anotar("grupo inexistente")
+                    continue
             tablas = [k for k in claves if re.search(job.patron, k, re.I)]
             if not tablas:
                 print(f"  - {job.hoja}: ninguna tabla coincide con /{job.patron}/ "
@@ -328,10 +386,20 @@ def extraer(m, salida, letras, csv):
                 try:
                     if job.nudos_de_areas:
                         nudos = nudos_de_areas_del_grupo(m, job.grupo, existentes)
+                        for g_ex in job.excluir_nudos_de or []:
+                            nudos -= nudos_de_areas_del_grupo(m, g_ex, existentes)
                         df = leer_tabla(m, clave, None, sel)
                         df = df[df["Joint"].map(_etiqueta).isin(nudos)]
                     else:
-                        df = leer_tabla(m, clave, job.grupo, sel)
+                        df = leer_tabla(m, clave, grupo, sel)
+                    if job.frames and "Frame" in df.columns:
+                        permitidos = {_etiqueta(f) for f in job.frames}
+                        df = df[df["Frame"].map(_etiqueta).isin(permitidos)]
+                        faltan = permitidos - {_etiqueta(f) for f in df["Frame"]}
+                        if faltan:
+                            lista = sorted(faltan, key=lambda x: (len(x), x))
+                            resto = f" (+{len(lista) - 8} mas)" if len(lista) > 8 else ""
+                            print(f"    AVISO: {len(lista)} frames sin resultados: {', '.join(lista[:8])}{resto}")
                 except Exception as e:  # noqa: BLE001
                     print(f"  - {job.hoja}: error leyendo '{clave}': {e}")
                     anotar(f"error: {e}", clave)
@@ -563,11 +631,51 @@ def d_presiones(dt):
     return pd.DataFrame(filas)
 
 
+def d_control_reacciones(dt):
+    """Equilibrio: suma de reacciones de los resortes (zapatas + vigas de cimentacion) contra la
+    reaccion total en la base (Base Reactions), por combinacion y paso."""
+    ra = _leer(dt, "CIMENTACION_reacciones.xlsx", "Reac_ZapAisl")
+    rc = _leer(dt, "CIMENTACION_reacciones.xlsx", "Reac_ZapCorr")
+    rb = _leer(dt, "CIMENTACION_reacciones.xlsx", "Reac_Base")
+    rv = _leer(dt, "CIMENTACION_faltantes.xlsx", "Reac_VigasCim")
+    zap = [r for r in (ra, rc) if r is not None and not r.empty]
+    if not zap or rb is None:
+        return None
+    z = pd.concat(zap, ignore_index=True)
+    z["StepType"] = z["StepType"].fillna("") if "StepType" in z.columns else ""
+    z = z.drop_duplicates(subset=["Joint", "OutputCase", "StepType"])
+    suma = lambda df: df.groupby(["OutputCase", "StepType"])[["F1", "F2", "F3"]].sum()
+    out = suma(z).add_suffix(" zapatas")
+    if rv is not None and not rv.empty:
+        rv = rv.assign(StepType=rv["StepType"].fillna("") if "StepType" in rv.columns else "")
+        rv = rv.drop_duplicates(subset=["Joint", "OutputCase", "StepType"])
+        out = out.join(suma(rv).add_suffix(" vigas"), how="left").fillna(0.0)
+    else:
+        for c in ("F1", "F2", "F3"):
+            out[f"{c} vigas"] = 0.0
+    for c in ("F1", "F2", "F3"):
+        out[f"{c} total"] = out[f"{c} zapatas"] + out[f"{c} vigas"]
+    rb = rb.assign(StepType=rb["StepType"].fillna(""))
+    rb = rb.set_index(["OutputCase", "StepType"])[["GlobalFX", "GlobalFY", "GlobalFZ"]]
+    out = out.join(rb, how="left").reset_index()
+    out["Dif FZ (T)"] = out["F3 total"] - out["GlobalFZ"]
+    out["Dif FZ (%)"] = out["Dif FZ (T)"] / out["GlobalFZ"] * 100
+    out["Dif FX (T)"] = out["F1 total"] - out["GlobalFX"]
+    out["Dif FY (T)"] = out["F2 total"] - out["GlobalFY"]
+    # en las combinaciones con sismo (pasos Max/Min) la suma de maximos nodales no es el maximo de la
+    # suma: solo las combinaciones sin paso son comparables con la reaccion total de la base
+    out["Comparable"] = np.where(out["StepType"] == "", "si", "no (suma de envolventes nodales)")
+    out.attrs["conclusion"] = ("incluye las vigas de cimentacion" if rv is not None and not rv.empty
+                               else "SIN reacciones bajo vigas (falta CIMENTACION_faltantes.xlsx)")
+    return out.rename(columns={"OutputCase": "Caso", "StepType": "Paso"})
+
+
 def derivados(dt):
     """Calcula las tablas derivadas y las guarda en derivados_memoria.xlsx."""
     dt = Path(dt)
     calculos = {"Modal": d_modal, "Cortante": d_cortante, "Derivas": d_derivas,
-                "Acero_resumen": d_acero, "Pesos": d_pesos, "Presion_zapatas": d_presiones}
+                "Acero_resumen": d_acero, "Pesos": d_pesos, "Presion_zapatas": d_presiones,
+                "Control_reacciones": d_control_reacciones}
     res = {}
     print("\nTablas derivadas:")
     for nombre, fn in calculos.items():
@@ -823,7 +931,10 @@ def main():
         capturas(m, carpeta_fig, args.capturas_solo.split(",") if args.capturas_solo else None)
         return
     extraer(m, salida, [args.solo] if args.solo else list(ARCHIVOS), args.csv)
-    if not args.sin_figuras:
+    if args.solo:
+        print("\nCon --solo no se recalculan los derivados ni los graficos "
+              "(para hacerlo: python extraer_tablas_sap.py --solo-derivados --salida <carpeta>).")
+    elif not args.sin_figuras:
         figuras(salida, carpeta_fig, derivados(salida))
 
 
